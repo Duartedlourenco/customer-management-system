@@ -1,27 +1,30 @@
 package com.duarte.cms.service;
 
 import com.duarte.cms.model.Customer;
+import com.duarte.cms.repository.CustomerRepository;
+
 import java.util.*;
 
 public class CustomerService {
 
-    private final List<Customer> customers = new ArrayList<>();
-    private long nextId = 1L;
+    private final CustomerRepository repository;
+
+    public CustomerService(CustomerRepository repository) {
+        this.repository = repository;
+    }
 
     public Customer createCustomer(String firstName, String lastName, String email, String phoneNumber) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("Email cannot be null or empty");
         }
 
-        for (Customer customer : customers) {
-            if (email.equalsIgnoreCase(customer.getEmail())) {
-                throw new IllegalArgumentException("Email '" + email + "' already exists.");
-            }
+        if (repository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Email '" + email + "' already exists.");
         }
 
-        Customer newCustomer = new Customer(nextId++, firstName, lastName, email, phoneNumber);
-        customers.add(newCustomer);
-        return newCustomer;
+        Customer newCustomer = new Customer(null, firstName, lastName, email, phoneNumber);
+
+        return repository.save(newCustomer);
     }
 
     public Customer getCustomerById(Long id) {
@@ -29,27 +32,24 @@ public class CustomerService {
             throw new IllegalArgumentException("ID cannot be null");
         }
 
-        for (Customer customer : customers) {
-            if (id.equals(customer.getId())) {
-                return customer;
-            }
-        }
-
-        throw new NoSuchElementException("Customer with ID " + id + " not found.");
+        return repository.findById(id).orElseThrow(() ->
+                new NoSuchElementException("Customer with ID " + id + " not found."));
     }
 
     public List<Customer> getAllCustomers() {
-        return new ArrayList<>(customers);
+        return repository.findAll();
     }
 
     public Customer updateCustomer(Long id, String firstName, String lastName, String email, String phoneNumber) {
         Customer customer = getCustomerById(id);
-        if (!customer.getEmail().equalsIgnoreCase(email)) {
-            for (Customer existing : customers) {
-                if (!existing.getId().equals(id) && email.equalsIgnoreCase(existing.getEmail())) {
-                    throw new IllegalArgumentException("Email " + email + " is already in use by another customer.");
-                }
-            }
+
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email cannot be null or empty");
+        }
+
+        if (!customer.getEmail().equalsIgnoreCase(email)
+                && repository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Email " + email + " is already in use by another customer.");
         }
 
         customer.setFirstName(firstName);
@@ -57,11 +57,11 @@ public class CustomerService {
         customer.setEmail(email);
         customer.setPhoneNumber(phoneNumber);
 
-        return customer;
+        return repository.save(customer);
     }
 
     public void deleteCustomer(Long id) {
-        Customer customer = getCustomerById(id);
-        customers.remove(customer);
+        getCustomerById(id);
+        repository.deleteById(id);
     }
 }

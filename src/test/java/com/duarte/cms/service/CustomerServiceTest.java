@@ -1,6 +1,8 @@
 package com.duarte.cms.service;
 
 import com.duarte.cms.model.Customer;
+import com.duarte.cms.repository.CustomerRepository;
+import com.duarte.cms.repository.InMemoryCustomerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +16,8 @@ class CustomerServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CustomerService();
+        CustomerRepository repository = new InMemoryCustomerRepository();
+        service = new CustomerService(repository);
     }
 
     @Test
