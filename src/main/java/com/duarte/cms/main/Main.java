@@ -1,6 +1,9 @@
 package com.duarte.cms.main;
 
 import com.duarte.cms.model.Customer;
+import com.duarte.cms.repository.CustomerRepository;
+import com.duarte.cms.database.DatabaseInitializer;
+import com.duarte.cms.repository.PostgreSQLCustomerRepository;
 import com.duarte.cms.service.CustomerService;
 
 import java.util.List;
@@ -9,10 +12,13 @@ import java.util.Scanner;
 
 public class Main {
 
-    private static final CustomerService customerService = new CustomerService();
+    private static final CustomerRepository customerRepository = new PostgreSQLCustomerRepository();
+    private static final CustomerService customerService = new CustomerService(customerRepository);
     private static final Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) {
+        DatabaseInitializer.createTable();
+
         boolean running = true;
 
         while (running) {
@@ -35,17 +41,21 @@ public class Main {
                 continue;
             }
 
-            switch (option) {
-                case 1 -> create();
-                case 2 -> consult();
-                case 3 -> list();
-                case 4 -> update();
-                case 5 -> delete();
-                case 6 -> {
-                    running = false;
-                    System.out.println("Exiting application... Goodbye!");
+            try {
+                switch (option) {
+                    case 1 -> create();
+                    case 2 -> consult();
+                    case 3 -> list();
+                    case 4 -> update();
+                    case 5 -> delete();
+                    case 6 -> {
+                        running = false;
+                        System.out.println("Exiting application... Goodbye!");
+                    }
+                    default -> System.out.println("Invalid option. Choose between 1 and 6.");
                 }
-                default -> System.out.println("Invalid option. Choose between 1 and 6.");
+            } catch (RuntimeException e) {
+                System.out.println("Unexpected error: " + e.getMessage());
             }
         }
         scanner.close();

@@ -13,7 +13,7 @@ public class Customer {
     private final LocalDateTime createdAt;
 
     public Customer(Long id, String firstName, String lastName, String email, String phoneNumber) {
-        this.id = Objects.requireNonNull(id, "ID cannot be null");
+        this.id = id;
         this.firstName = validateRequired(firstName, "First name");
         this.lastName = validateRequired(lastName, "Last name");
         this.email = validateRequired(email, "Email");
