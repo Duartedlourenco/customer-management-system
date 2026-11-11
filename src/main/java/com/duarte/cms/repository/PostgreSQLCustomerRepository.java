@@ -175,7 +175,6 @@ public class PostgreSQLCustomerRepository implements CustomerRepository {
         }
     }
 
-    /** Converte a linha atual do ResultSet num objeto Customer (antes estava repetido 3 vezes). */
     private Customer mapRow(ResultSet resultSet) throws SQLException {
         return new Customer(
                 resultSet.getLong("id"),
