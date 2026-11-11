@@ -151,7 +151,7 @@ The table is created automatically when the application starts.
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/customer-management-system.git
+git clone https://github.com/duartedlourenco/customer-management-system.git
 cd customer-management-system
 ```
 
