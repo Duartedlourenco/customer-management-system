@@ -151,7 +151,7 @@ The table is created automatically when the application starts.
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/duartedlourenco/customer-management-system.git
+git clone https://github.com/Duartedlourenco/customer-management-system.git
 cd customer-management-system
 ```
 
@@ -203,7 +203,7 @@ The application shows a menu in the console:
 
 ```
 1 - Create customer
-2 - Consult customer by ID
+2 - Consult customer 
 3 - List all customers
 4 - Update customer
 5 - Delete customer
