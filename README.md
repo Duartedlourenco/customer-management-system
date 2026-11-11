@@ -1,0 +1,255 @@
+# Customer Management System
+
+A console-based CRUD application written in **Java 21** that manages customers and stores them in a **PostgreSQL** database using plain **JDBC**. The project follows a layered architecture and is covered by unit tests (**JUnit 5**, **Mockito**) and database integration tests.
+
+It was built as a hands-on exercise in professional Java development: Maven, SQL, JDBC, dependency injection and testing.
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Database Schema](#database-schema)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Testing](#testing)
+- [Resetting the Database](#resetting-the-database)
+- [Design Decisions](#design-decisions)
+- [Possible Improvements](#possible-improvements)
+
+---
+
+## Features
+
+- Create a customer (first name, last name, email, optional phone number)
+- Look up a customer by ID
+- List all customers
+- Update an existing customer
+- Delete a customer
+- Business rules enforced in the service layer:
+  - Email is required and must be **unique** (case-insensitive)
+  - A customer must exist before it can be updated or deleted
+- Automatic creation of the database table on startup
+- Credentials read from environment variables (nothing sensitive in the code)
+
+## Tech Stack
+
+| Area | Technology |
+|---|---|
+| Language | Java 21 |
+| Build tool | Maven |
+| Database | PostgreSQL |
+| Database access | JDBC (`PreparedStatement`, `ResultSet`) with the PostgreSQL driver |
+| Unit testing | JUnit 5 |
+| Mocking | Mockito |
+| Version control | Git |
+
+## Architecture
+
+The application is split into layers. Each layer only talks to the one below it.
+
+```
+┌────────────────────┐
+│  Main (console UI) │   reads input, prints output
+└─────────┬──────────┘
+          │
+┌─────────▼──────────┐
+│  CustomerService   │   business rules (unique email, existence checks)
+└─────────┬──────────┘
+          │  depends on the interface only
+┌─────────▼──────────┐
+│ CustomerRepository │   interface (the contract)
+└─────────┬──────────┘
+     ┌────┴─────────────────────────┐
+     │                              │
+┌────▼────────────────────┐  ┌──────▼─────────────────┐
+│ PostgreSQLCustomerRepo  │  │ InMemoryCustomerRepo   │
+│ (JDBC + SQL)            │  │ (used in tests)        │
+└────┬────────────────────┘  └────────────────────────┘
+     │
+┌────▼─────────┐
+│  PostgreSQL  │
+└──────────────┘
+```
+
+The service receives its repository through the constructor (**dependency injection**), so it never knows which implementation it is using. This makes it easy to swap implementations and to test the service without a database.
+
+### Example flow: creating a customer
+
+1. `Main` reads the data typed by the user and calls `CustomerService.createCustomer(...)`.
+2. The service checks that the email is not already in use (`repository.findByEmail`).
+3. The service builds a `Customer` with `id = null` (it does not exist in the database yet).
+4. `PostgreSQLCustomerRepository.save` sees that the id is `null` and runs an `INSERT ... RETURNING id, created_at`.
+5. The database generates the `id` and `created_at`; the repository returns a new `Customer` containing them.
+6. The result goes back up to `Main`, which prints the assigned ID.
+
+## Project Structure
+
+```
+customer-management-system/
+├── pom.xml
+├── README.md
+└── src/
+    ├── main/java/com/duarte/cms/
+    │   ├── main/
+    │   │   └── Main.java                          # Console menu
+    │   ├── model/
+    │   │   └── Customer.java                      # Domain object + validation
+    │   ├── service/
+    │   │   └── CustomerService.java               # Business rules
+    │   ├── repository/
+    │   │   ├── CustomerRepository.java            # Interface (contract)
+    │   │   ├── PostgreSQLCustomerRepository.java  # JDBC implementation
+    │   │   └── InMemoryCustomerRepository.java    # In-memory implementation
+    │   └── database/
+    │       ├── DatabaseConnection.java            # Opens connections
+    │       └── DatabaseInitializer.java           # Creates the table
+    └── test/java/com/duarte/cms/
+        ├── service/
+        │   ├── CustomerServiceTest.java           # Tests with the in-memory repo
+        │   └── CustomerServiceMockTest.java       # Tests with Mockito
+        ├── repository/
+        │   └── PostgreSQLCustomerRepositoryIntegrationTest.java
+        └── database/
+            └── DatabaseConnectionTest.java
+```
+
+## Database Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS customers (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    phone_number VARCHAR(20),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+| Column | Notes |
+|---|---|
+| `id` | Generated by the database (identity column), primary key |
+| `first_name`, `last_name` | Required |
+| `email` | Required and unique |
+| `phone_number` | Optional |
+| `created_at` | Filled automatically by the database |
+
+The table is created automatically when the application starts.
+
+## Getting Started
+
+### Prerequisites
+
+- **JDK 21** or newer
+- **Maven** 3.9+ (or the Maven bundled with IntelliJ IDEA)
+- **PostgreSQL** running locally (default port `5432`)
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/<your-username>/customer-management-system.git
+cd customer-management-system
+```
+
+### 2. Create the database
+
+Run this once in `psql`, pgAdmin or any SQL console:
+
+```sql
+CREATE DATABASE customer_management;
+```
+
+### 3. Configure the environment variables
+
+The application reads its database configuration from environment variables:
+
+| Variable | Required | Description | Default |
+|---|---|---|---|
+| `DB_USER` | Yes | PostgreSQL user | – |
+| `DB_PASSWORD` | Yes | PostgreSQL password | – |
+| `DB_URL` | No | JDBC connection URL | `jdbc:postgresql://localhost:5432/customer_management` |
+
+**In IntelliJ IDEA:** *Run → Edit Configurations → Environment variables*, then enter:
+
+```
+DB_USER=your_user;DB_PASSWORD=your_password
+```
+
+**In a terminal (Linux / macOS):**
+
+```bash
+export DB_USER=your_user
+export DB_PASSWORD=your_password
+```
+
+**In PowerShell (Windows):**
+
+```powershell
+$env:DB_USER="your_user"
+$env:DB_PASSWORD="your_password"
+```
+
+### 4. Run the application
+
+Run the `main` method of `com.duarte.cms.main.Main` from your IDE. The `customers` table is created automatically on the first run.
+
+## Usage
+
+The application shows a menu in the console:
+
+```
+1 - Create customer
+2 - Consult customer by ID
+3 - List all customers
+4 - Update customer
+5 - Delete customer
+6 - Exit
+```
+
+Type the number of the option and follow the prompts. Errors (for example, a duplicated email or an unknown ID) are reported with a clear message and the application keeps running.
+
+## Testing
+
+```bash
+mvn test
+```
+
+| Test class | Type | What it covers |
+|---|---|---|
+| `CustomerServiceTest` | Unit | Service rules using the in-memory repository |
+| `CustomerServiceMockTest` | Unit (Mockito) | Service behaviour using a mocked repository, including checking that `save` is **never** called when the email is duplicated |
+| `PostgreSQLCustomerRepositoryIntegrationTest` | Integration | Insert, find, update and delete against a real PostgreSQL database |
+| `DatabaseConnectionTest` | Integration | Opens a real connection |
+
+The two integration tests only run when the `DB_USER` environment variable is defined. Without a configured database they are skipped instead of failing, so `mvn test` also works on machines (or CI servers) without PostgreSQL. Test data uses random emails and is cleaned up after each test.
+
+## Resetting the Database
+
+To remove the table completely (it is recreated on the next run):
+
+```sql
+DROP TABLE customers;
+```
+
+> This command cannot be undone. Make sure you are connected to the right database.
+
+## Design Decisions
+
+- **Repository pattern with an interface.** The service depends on `CustomerRepository`, not on PostgreSQL. This allows an in-memory implementation for fast tests and mocks with Mockito.
+- **Constructor injection.** Dependencies are passed in from outside rather than created inside the class. It is the same idea that frameworks such as Spring automate.
+- **`PreparedStatement` everywhere.** All SQL uses `?` parameters, which prevents SQL injection.
+- **`try-with-resources`.** Connections, statements and result sets are always closed, even when an error occurs.
+- **`INSERT ... RETURNING`.** The database generates `id` and `created_at`, and the application gets them back in the same round trip.
+- **Two `Customer` constructors.** One for new customers (no id yet) and one for customers loaded from the database (id and creation date required).
+- **Validation in the model.** A `Customer` with a blank name or email can never exist in memory.
+- **Credentials in environment variables.** Nothing sensitive is committed to the repository.
+
+## Possible Improvements
+
+- Add a `findByLastName` search and pagination for large lists
+- Add a CI pipeline (GitHub Actions) that runs `mvn test`
+- Replace the console with a REST API using Spring Boot
